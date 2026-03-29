@@ -1,3 +1,8 @@
+// Fix: crypto global for older Node.js versions
+if (!globalThis.crypto) {
+  globalThis.crypto = require("crypto").webcrypto;
+}
+
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
