@@ -14,122 +14,151 @@
     .o1{top:-200px;left:-200px;background:linear-gradient(135deg,#29c48c,#1976d2)}
     .o2{bottom:-200px;right:-200px;background:linear-gradient(135deg,#7c3aed,#2563eb);animation-delay:-10s}
     @keyframes float{0%,100%{transform:translate(0,0)}33%{transform:translate(40px,-40px)}66%{transform:translate(-40px,40px)}}
-    .card{position:relative;z-index:10;width:100%;max-width:480px;margin:20px;background:rgba(20,20,30,.75);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:40px 32px;box-shadow:0 20px 80px rgba(0,0,0,.5);animation:up .5s ease}
+    .card{position:relative;z-index:10;width:100%;max-width:480px;margin:20px;background:rgba(20,20,30,.75);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:36px 32px;box-shadow:0 20px 80px rgba(0,0,0,.5);animation:up .5s ease}
     @keyframes up{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
     .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#29c48c,#1976d2,transparent);border-radius:28px 28px 0 0}
-    .logo-wrap{width:80px;height:80px;margin:0 auto 16px;position:relative}
+    .logo-wrap{width:72px;height:72px;margin:0 auto 14px;position:relative}
     .ring{position:absolute;inset:0;border:3px solid transparent;border-top-color:#29c48c;border-right-color:#1976d2;border-radius:50%;animation:spin 3s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .logo{width:100%;height:100%;background:linear-gradient(135deg,#29c48c,#1976d2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px}
-    h1{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
-    .sub{text-align:center;color:rgba(255,255,255,.5);font-size:13px;margin-bottom:28px}
-    .steps{display:flex;justify-content:center;gap:6px;margin-bottom:24px;flex-wrap:wrap}
-    .step{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:6px 12px;border-radius:20px;font-size:11px;color:rgba(255,255,255,.6)}
-    .step.active{border-color:#29c48c44;background:rgba(41,196,140,.08);color:#29c48c}
-    .step span{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
-    .step.active span{background:#29c48c;color:#000}
+    .logo{width:100%;height:100%;background:linear-gradient(135deg,#29c48c,#1976d2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px}
+    h1{text-align:center;font-size:20px;font-weight:700;margin-bottom:4px}
+    .sub{text-align:center;color:rgba(255,255,255,.5);font-size:12px;margin-bottom:20px}
+
+    /* Tabs */
+    .tabs{display:flex;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:4px;margin-bottom:22px;gap:4px}
+    .tab{flex:1;padding:9px;border:none;border-radius:9px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,.5)}
+    .tab.active{background:linear-gradient(135deg,#29c48c,#1976d2);color:white;box-shadow:0 2px 10px rgba(41,196,140,.3)}
+    .tab i{margin-right:5px}
+
+    /* Panels */
+    .panel{display:none}.panel.active{display:block}
+
+    /* QR Panel */
+    .qr-wrap{text-align:center;padding:10px 0}
+    .qr-img{width:220px;height:220px;border-radius:16px;border:2px solid rgba(41,196,140,.3);padding:8px;background:white;margin:0 auto 12px;display:block}
+    .qr-placeholder{width:220px;height:220px;border-radius:16px;border:2px dashed rgba(255,255,255,.15);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:rgba(255,255,255,.4);font-size:13px}
+    .qr-tip{font-size:12px;color:rgba(255,255,255,.5);line-height:1.7;text-align:center}
+    .qr-tip strong{color:#29c48c}
+    .qr-timer{font-size:11px;color:rgba(255,255,255,.35);margin-top:6px}
+
+    /* Pair Panel */
     label{display:block;font-size:12px;font-weight:500;color:rgba(255,255,255,.7);margin-bottom:8px}
     .inp-wrap{position:relative;margin-bottom:8px}
     .inp{width:100%;padding:13px 16px 13px 46px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;color:white;font-family:'Poppins',sans-serif;font-size:14px;outline:none;transition:border .2s}
-    .inp:focus{border-color:#29c48c}
-    .inp::placeholder{color:rgba(255,255,255,.25)}
+    .inp:focus{border-color:#29c48c}.inp::placeholder{color:rgba(255,255,255,.25)}
     .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#29c48c;font-size:15px}
-    .hint{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:20px}
-    .btn{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#29c48c,#1976d2);color:white;font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .3s;box-shadow:0 4px 20px rgba(41,196,140,.3)}
+    .hint{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:18px}
+    .pair-code{font-size:34px;font-weight:700;letter-spacing:6px;color:#29c48c;background:rgba(41,196,140,.08);border:1.5px dashed rgba(41,196,140,.4);border-radius:14px;padding:14px 20px;display:inline-block;text-align:center;width:100%;margin:12px 0}
+    .code-tip{font-size:12px;color:rgba(255,255,255,.4);line-height:1.7;margin-bottom:8px}
+    .code-tip strong{color:#29c48c}
+
+    /* Buttons */
+    .btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#29c48c,#1976d2);color:white;font-family:'Poppins',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .3s;box-shadow:0 4px 20px rgba(41,196,140,.3)}
     .btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(41,196,140,.4)}
     .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
-    /* Pair code display */
-    #codeBox{display:none;text-align:center;margin:20px 0}
-    .code-label{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px}
-    .pair-code{font-size:36px;font-weight:700;letter-spacing:8px;color:#29c48c;background:rgba(41,196,140,.08);border:1.5px dashed rgba(41,196,140,.4);border-radius:14px;padding:16px 24px;display:inline-block}
-    .code-tip{font-size:12px;color:rgba(255,255,255,.4);margin-top:10px;line-height:1.6}
-    .code-tip strong{color:#29c48c}
-    .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.2);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
-
-    /* Session ID result */
-    #resultBox{display:none;margin-top:20px}
-    .result-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#29c48c;margin-bottom:10px}
-    .sid-wrap{background:rgba(41,196,140,.06);border:1px solid rgba(41,196,140,.2);border-radius:12px;padding:14px;word-break:break-all;font-size:11px;color:#a3e6cc;font-family:monospace;line-height:1.7;max-height:120px;overflow-y:auto}
+    /* Result */
+    #resultBox{display:none;margin-top:10px}
+    .result-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#29c48c;margin-bottom:8px}
+    .sid-wrap{background:rgba(41,196,140,.06);border:1px solid rgba(41,196,140,.2);border-radius:12px;padding:14px;word-break:break-all;font-size:11px;color:#a3e6cc;font-family:monospace;line-height:1.7;max-height:100px;overflow-y:auto}
     .copy-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(41,196,140,.15);border:1px solid rgba(41,196,140,.3);border-radius:10px;color:#29c48c;cursor:pointer;font-family:'Poppins',sans-serif;font-size:13px;font-weight:500;margin-top:10px;transition:all .2s;width:100%;justify-content:center}
     .copy-btn:hover{background:rgba(41,196,140,.25)}
-    .again-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Poppins',sans-serif;font-size:13px;margin-top:8px;transition:all .2s;width:100%;justify-content:center}
+    .again-btn{display:flex;align-items:center;gap:6px;padding:9px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px;margin-top:8px;transition:all .2s;width:100%;justify-content:center}
     .again-btn:hover{border-color:#29c48c44;color:white}
 
-    /* Info steps */
-    .how{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 16px;margin-top:20px;font-size:12px;color:rgba(255,255,255,.5);line-height:1.9}
-    .how b{color:rgba(255,255,255,.8)}
-    footer{text-align:center;margin-top:20px;font-size:11px;color:rgba(255,255,255,.2)}
-
-    /* Toast */
-    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:rgba(30,30,50,.95);border:1px solid rgba(41,196,140,.3);padding:12px 22px;border-radius:40px;font-size:13px;color:#29c48c;display:flex;align-items:center;gap:8px;transition:transform .3s;z-index:999;backdrop-filter:blur(10px)}
+    .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+    .how{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 16px;margin-top:18px;font-size:12px;color:rgba(255,255,255,.5);line-height:1.8}
+    .how b{color:rgba(255,255,255,.75)}
+    footer{text-align:center;margin-top:16px;font-size:11px;color:rgba(255,255,255,.2)}
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:rgba(30,30,50,.95);border:1px solid rgba(41,196,140,.3);padding:10px 20px;border-radius:40px;font-size:13px;color:#29c48c;display:flex;align-items:center;gap:8px;transition:transform .3s;z-index:999;backdrop-filter:blur(10px)}
     #toast.show{transform:translateX(-50%) translateY(0)}
   </style>
 </head>
 <body>
-<div class="bg"></div>
-<div class="orb o1"></div>
-<div class="orb o2"></div>
+<div class="bg"></div><div class="orb o1"></div><div class="orb o2"></div>
 
 <div class="card">
   <div class="logo-wrap"><div class="ring"></div><div class="logo"><i class="fas fa-robot"></i></div></div>
   <h1>JamberTech Pair</h1>
   <p class="sub">Get your WhatsApp Session ID — Official</p>
 
-  <div class="steps">
-    <div class="step active" id="s1"><span>1</span> Enter Number</div>
-    <div class="step" id="s2"><span>2</span> Get Code</div>
-    <div class="step" id="s3"><span>3</span> Session ID</div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('qr')"><i class="fas fa-qrcode"></i> QR Code</button>
+    <button class="tab" onclick="switchTab('pair')"><i class="fas fa-link"></i> Pair Code</button>
   </div>
 
-  <div id="inputSection">
-    <label><i class="fas fa-phone" style="color:#29c48c;margin-right:5px"></i> WhatsApp Number</label>
-    <div class="inp-wrap">
-      <input class="inp" id="phoneInput" type="tel" placeholder="923xxxxxxxxxx (with country code, no +)">
-      <i class="fas fa-phone ico"></i>
-    </div>
-    <p class="hint"><i class="fas fa-info-circle" style="color:#29c48c"></i> Example: 923001234567 — no + or spaces</p>
-    <button class="btn" id="pairBtn" onclick="startPair()">
-      <i class="fas fa-link"></i> Generate Pair Code
-    </button>
-  </div>
-
-  <div id="codeBox">
-    <div class="code-label">Enter this code in WhatsApp → Linked Devices</div>
-    <div class="pair-code" id="pairCodeDisplay">----</div>
-    <div class="code-tip">
-      Open WhatsApp → <strong>⋮ Menu</strong> → <strong>Linked Devices</strong><br>
-      → <strong>Link a Device</strong> → <strong>Link with phone number</strong><br>
-      → Enter the code above ↑
-    </div>
-    <div style="margin-top:16px;color:rgba(255,255,255,.5);font-size:12px">
-      <div class="spinner"></div> Waiting for WhatsApp connection...
+  <!-- ── QR Tab ── -->
+  <div class="panel active" id="tab-qr">
+    <div id="qrSection">
+      <div class="qr-wrap">
+        <div class="qr-placeholder" id="qrPlaceholder">
+          <i class="fas fa-qrcode" style="font-size:40px;opacity:.3"></i>
+          <span>QR generate karein</span>
+        </div>
+        <img id="qrImage" class="qr-img" style="display:none" alt="QR Code"/>
+        <div class="qr-tip" id="qrTip" style="display:none">
+          WhatsApp kholein → <strong>⋮ Menu</strong> → <strong>Linked Devices</strong><br>
+          → <strong>Link a Device</strong> → <strong>Camera se scan karein</strong>
+        </div>
+        <div class="qr-timer" id="qrTimer"></div>
+      </div>
+      <button class="btn" id="qrBtn" onclick="startQR()">
+        <i class="fas fa-qrcode"></i> QR Code Generate Karein
+      </button>
     </div>
   </div>
 
+  <!-- ── Pair Code Tab ── -->
+  <div class="panel" id="tab-pair">
+    <div id="pairInputSection">
+      <label><i class="fas fa-phone" style="color:#29c48c;margin-right:5px"></i> WhatsApp Number (Country Code ke saath)</label>
+      <div class="inp-wrap">
+        <input class="inp" id="phoneInput" type="tel" placeholder="923001234567">
+        <i class="fas fa-phone ico"></i>
+      </div>
+      <p class="hint"><i class="fas fa-info-circle" style="color:#29c48c"></i> Misaal: 923001234567 — bina + ya spaces</p>
+      <button class="btn" id="pairBtn" onclick="startPair()">
+        <i class="fas fa-link"></i> Pair Code Generate Karein
+      </button>
+    </div>
+    <div id="pairCodeSection" style="display:none;text-align:center">
+      <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:4px">Yeh code WhatsApp mein enter karein:</div>
+      <div class="pair-code" id="pairCodeDisplay">----</div>
+      <div class="code-tip">
+        WhatsApp → <strong>⋮</strong> → <strong>Linked Devices</strong> → <strong>Link with phone number</strong><br>→ Upar wala code enter karein
+      </div>
+      <div style="color:rgba(255,255,255,.4);font-size:12px;margin-top:8px">
+        <div class="spinner" style="display:inline-block;vertical-align:middle;margin-right:6px"></div> WhatsApp connection ka intezaar...
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Result (common) ── -->
   <div id="resultBox">
-    <div class="result-head"><i class="fas fa-check-circle"></i> Connected! Your Session ID:</div>
+    <div class="result-head"><i class="fas fa-check-circle"></i> Connected! Apna Session ID:</div>
     <div class="sid-wrap" id="sessionDisplay"></div>
-    <button class="copy-btn" onclick="copySession()"><i class="fas fa-copy"></i> Copy Session ID</button>
-    <button class="again-btn" onclick="resetPage()"><i class="fas fa-redo"></i> Generate Another</button>
+    <button class="copy-btn" onclick="copySession()"><i class="fas fa-copy"></i> Session ID Copy Karein</button>
+    <button class="again-btn" onclick="resetAll()"><i class="fas fa-redo"></i> Dobara Generate Karein</button>
   </div>
 
   <div class="how">
-    <b>📋 How to use this Session ID:</b><br>
-    1. Copy the Session ID above<br>
-    2. Go to Railway / Render / Koyeb<br>
-    3. Add <b>SESSION_ID</b> variable → paste it<br>
-    4. Deploy your <b>JamberTech-WA</b> bot ✅
+    <b>📋 Session ID use karna:</b><br>
+    1. Session ID copy karein<br>
+    2. Railway / Render / Koyeb mein jayein<br>
+    3. <b>SESSION_ID</b> variable mein paste karein<br>
+    4. Bot deploy karein ✅
   </div>
-
   <footer>© 2026 JamberTech Official</footer>
 </div>
 
-<div id="toast"><i class="fas fa-check-circle"></i> <span id="toastMsg">Copied!</span></div>
+<div id="toast"><i class="fas fa-check-circle"></i> <span id="toastMsg"></span></div>
 
 <script>
-let currentSessionId = null;
+let mode = 'qr';
+let currentToken = null;
 let pollTimer = null;
+let qrRefreshTimer = null;
 let sessionID = null;
 
 function showToast(msg) {
@@ -139,65 +168,122 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function setStep(n) {
-  [1,2,3].forEach(i => {
-    document.getElementById('s'+i).classList.toggle('active', i <= n);
-  });
+function switchTab(tab) {
+  mode = tab;
+  document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', (i===0&&tab==='qr')||(i===1&&tab==='pair')));
+  document.getElementById('tab-qr').classList.toggle('active', tab==='qr');
+  document.getElementById('tab-pair').classList.toggle('active', tab==='pair');
+  resetAll();
 }
 
+// ── QR Code Flow ──────────────────────────────────────────────────────────
+async function startQR() {
+  const btn = document.getElementById('qrBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Generating QR...';
+
+  // Cleanup previous
+  if (currentToken) stopPolling();
+
+  try {
+    const res = await fetch('/qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await res.json();
+    if (data.error) { showToast(data.error); btn.disabled=false; btn.innerHTML='<i class="fas fa-qrcode"></i> QR Code Generate Karein'; return; }
+
+    currentToken = data.sessionId;
+    showQR(data.qr);
+    btn.innerHTML = '<i class="fas fa-sync"></i> Naya QR Generate Karein';
+    btn.disabled = false;
+
+    // Poll every 3 seconds
+    pollTimer = setInterval(() => pollQR(), 3000);
+
+  } catch(e) {
+    showToast('Error aaya. Dobara try karein!');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-qrcode"></i> QR Code Generate Karein';
+  }
+}
+
+function showQR(dataUrl) {
+  document.getElementById('qrPlaceholder').style.display='none';
+  const img = document.getElementById('qrImage');
+  img.src = dataUrl;
+  img.style.display = 'block';
+  document.getElementById('qrTip').style.display = 'block';
+  document.getElementById('qrTimer').textContent = '⏱️ QR code 60 seconds mein expire hota hai';
+}
+
+async function pollQR() {
+  if (!currentToken) return;
+  try {
+    const res = await fetch('/qr/' + currentToken);
+    const data = await res.json();
+    if (data.status === 'connected' && data.sessionID) {
+      stopPolling();
+      showResult(data.sessionID);
+    } else if (data.status === 'expired') {
+      stopPolling();
+      document.getElementById('qrTimer').textContent = '⚠️ QR expire ho gaya — naya generate karein';
+      document.getElementById('qrImage').style.opacity = '0.3';
+    } else if (data.qr) {
+      // Fresh QR
+      showQR(data.qr);
+    }
+  } catch {}
+}
+
+// ── Pair Code Flow ────────────────────────────────────────────────────────
 async function startPair() {
   const num = document.getElementById('phoneInput').value.replace(/[^0-9]/g,'');
-  if (!num || num.length < 10) { showToast('Valid number daalo!'); return; }
+  if (!num || num.length < 10) { showToast('Sahi number daalo!'); return; }
 
   const btn = document.getElementById('pairBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Generating...';
+  btn.disabled=true;
+  btn.innerHTML='<div class="spinner"></div> Generating...';
 
   try {
     const res = await fetch('/pair', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ number: num })
     });
     const data = await res.json();
+    if (data.error) { showToast(data.error); btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> Pair Code Generate Karein'; return; }
 
-    if (data.error) { showToast(data.error); btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> Generate Pair Code'; return; }
-
-    currentSessionId = data.sessionId;
+    currentToken = data.sessionId;
+    document.getElementById('pairInputSection').style.display='none';
     document.getElementById('pairCodeDisplay').textContent = data.pairCode;
-    document.getElementById('inputSection').style.display = 'none';
-    document.getElementById('codeBox').style.display = 'block';
-    setStep(2);
+    document.getElementById('pairCodeSection').style.display='block';
 
-    // Poll for session
-    pollTimer = setInterval(pollStatus, 3000);
-
+    pollTimer = setInterval(() => pollPair(), 3000);
   } catch {
-    showToast('Server error. Try again!');
-    btn.disabled=false;
-    btn.innerHTML='<i class="fas fa-link"></i> Generate Pair Code';
+    showToast('Server error. Dobara try karein!');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> Pair Code Generate Karein';
   }
 }
 
-async function pollStatus() {
-  if (!currentSessionId) return;
+async function pollPair() {
+  if (!currentToken) return;
   try {
-    const res = await fetch('/status/' + currentSessionId);
+    const res = await fetch('/status/' + currentToken);
     const data = await res.json();
-
     if (data.status === 'connected' && data.sessionID) {
-      clearInterval(pollTimer);
-      sessionID = data.sessionID;
-      document.getElementById('codeBox').style.display = 'none';
-      document.getElementById('sessionDisplay').textContent = sessionID;
-      document.getElementById('resultBox').style.display = 'block';
-      setStep(3);
+      stopPolling(); showResult(data.sessionID);
     } else if (data.status === 'expired') {
-      clearInterval(pollTimer);
-      showToast('Session expired. Try again!');
-      resetPage();
+      stopPolling(); showToast('Session expire. Dobara try karein!'); resetAll();
     }
   } catch {}
+}
+
+// ── Common ────────────────────────────────────────────────────────────────
+function showResult(sid) {
+  sessionID = sid;
+  document.getElementById('qrSection').style.display='none';
+  document.getElementById('pairInputSection').style.display='none';
+  document.getElementById('pairCodeSection').style.display='none';
+  document.getElementById('sessionDisplay').textContent = sid;
+  document.getElementById('resultBox').style.display='block';
+  showToast('Session ID mil gaya! ✅');
 }
 
 function copySession() {
@@ -205,17 +291,30 @@ function copySession() {
   navigator.clipboard.writeText(sessionID).then(() => showToast('Session ID copied! ✅'));
 }
 
-function resetPage() {
-  if (pollTimer) clearInterval(pollTimer);
-  currentSessionId = null; sessionID = null;
-  document.getElementById('inputSection').style.display = 'block';
-  document.getElementById('codeBox').style.display = 'none';
-  document.getElementById('resultBox').style.display = 'none';
-  document.getElementById('phoneInput').value = '';
-  const btn = document.getElementById('pairBtn');
-  btn.disabled = false;
-  btn.innerHTML = '<i class="fas fa-link"></i> Generate Pair Code';
-  setStep(1);
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
+}
+
+function resetAll() {
+  stopPolling();
+  currentToken=null; sessionID=null;
+  // QR
+  document.getElementById('qrSection').style.display='block';
+  document.getElementById('qrPlaceholder').style.display='flex';
+  document.getElementById('qrImage').style.display='none';
+  document.getElementById('qrImage').style.opacity='1';
+  document.getElementById('qrTip').style.display='none';
+  document.getElementById('qrTimer').textContent='';
+  const qb = document.getElementById('qrBtn');
+  qb.disabled=false; qb.innerHTML='<i class="fas fa-qrcode"></i> QR Code Generate Karein';
+  // Pair
+  document.getElementById('pairInputSection').style.display='block';
+  document.getElementById('pairCodeSection').style.display='none';
+  document.getElementById('phoneInput').value='';
+  const pb = document.getElementById('pairBtn');
+  pb.disabled=false; pb.innerHTML='<i class="fas fa-link"></i> Pair Code Generate Karein';
+  // Result
+  document.getElementById('resultBox').style.display='none';
 }
 </script>
 </body>

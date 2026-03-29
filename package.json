@@ -1,7 +1,7 @@
 {
   "name": "jambertech-pair",
   "version": "1.0.0",
-  "description": "JamberTech Official — WhatsApp Pairing Server",
+  "description": "JamberTech Official — WhatsApp Session Generator",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
