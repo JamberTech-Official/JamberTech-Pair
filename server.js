@@ -262,6 +262,8 @@ app.post("/qr", async (_req, res) => {
         if (code === DisconnectReason.timedOut) {
           const s = activeSessions.get(token);
           if (s) s.qrExpired = true;
+          activeSessions.delete(token);
+          cleanDir(sessionDir);
         }
         if (
           code === DisconnectReason.loggedOut ||
@@ -273,6 +275,18 @@ app.post("/qr", async (_req, res) => {
         }
       }
     });
+
+    // Auto cleanup after 5 min for QR sessions
+    setTimeout(() => {
+      const e = activeSessions.get(token);
+      if (e && !e.connected) {
+        try {
+          e.sock.end();
+        } catch (_) {}
+        activeSessions.delete(token);
+        cleanDir(sessionDir);
+      }
+    }, 5 * 60 * 1000);
 
     // Wait up to 10s for first QR
     for (let i = 0; i < 20; i++) {
@@ -312,7 +326,11 @@ app.get("/qr/:token", (req, res) => {
     return res.json({ status: "connected", sessionID: sid });
   }
 
-  if (e.qrExpired) return res.json({ status: "expired" });
+  if (e.qrExpired) {
+    activeSessions.delete(req.params.token);
+    cleanDir(e.sessionDir);
+    return res.json({ status: "expired" });
+  }
   return res.json({ status: "waiting", qr: e.qrDataUrl });
 });
 
