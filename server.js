@@ -49,7 +49,6 @@ app.post("/pair", async (req, res) => {
   let { number } = req.body;
   if (!number) return res.status(400).json({ error: "Phone number required" });
 
-  // Sanitize: only digits, no +, no spaces
   number = number.replace(/[^0-9]/g, "");
   if (number.length < 7) return res.status(400).json({ error: "Invalid number" });
 
@@ -73,7 +72,6 @@ app.post("/pair", async (req, res) => {
       version,
       logger: pino({ level: "silent" }),
       auth: state,
-      // Use standard browser — critical for pair code to work
       browser: Browsers.ubuntu("Chrome"),
       printQRInTerminal: false,
       connectTimeoutMs: 30_000,
@@ -90,30 +88,30 @@ app.post("/pair", async (req, res) => {
       sessionID: null,
     });
 
-    // ── Wait for WebSocket to actually OPEN before requesting pair code ──
+    // ── Wait for Baileys 'connecting' state (handshake complete) ──────────
+    // This is the RIGHT time to call requestPairingCode — not on ws.open
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("WS open timeout")), 15000);
-      // sock.ws is the underlying WebSocket
-      if (sock.ws.readyState === sock.ws.OPEN) {
-        clearTimeout(timeout);
-        resolve();
-        return;
-      }
-      sock.ws.on("open", () => {
-        clearTimeout(timeout);
-        resolve();
-      });
-      sock.ws.on("error", (err) => {
-        clearTimeout(timeout);
-        reject(err);
+      const timeout = setTimeout(() => reject(new Error("Connection timeout")), 20000);
+
+      sock.ev.on("connection.update", ({ connection }) => {
+        if (connection === "connecting" || connection === "open") {
+          clearTimeout(timeout);
+          resolve();
+        }
+        if (connection === "close") {
+          clearTimeout(timeout);
+          reject(new Error("Connection closed before pairing"));
+        }
       });
     });
 
-    // ── Now request the pair code ──────────────────────────────────────────
+    // Small delay after handshake before requesting code
+    await sleep(1000);
+
+    // ── Request pair code ─────────────────────────────────────────────────
     let pairCode;
     try {
       pairCode = await sock.requestPairingCode(number);
-      // Format as XXXX-XXXX for display
       pairCode = pairCode?.replace(/(.{4})/g, "$1-").slice(0, -1) || pairCode;
     } catch (err) {
       try { sock.ws.close(); } catch {}
@@ -122,7 +120,7 @@ app.post("/pair", async (req, res) => {
       return res.status(500).json({ error: "Pair code error: " + err.message });
     }
 
-    // ── Listen for WhatsApp connection (after user enters code) ───────────
+    // ── Listen for successful WhatsApp login ──────────────────────────────
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
       const entry = activeSessions.get(token);
       if (!entry) return;
