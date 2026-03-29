@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JamberTech Pair | Get Session ID</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Poppins',sans-serif;background:#0a0a0f;color:white;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}
+    .bg{position:fixed;inset:0;background:radial-gradient(circle at 30% 40%,rgba(41,196,140,.15),transparent 60%),radial-gradient(circle at 70% 70%,rgba(25,118,210,.15),transparent 60%),#0a0a0f;z-index:0}
+    .orb{position:fixed;width:500px;height:500px;border-radius:50%;filter:blur(120px);opacity:.25;animation:float 20s infinite ease-in-out}
+    .o1{top:-200px;left:-200px;background:linear-gradient(135deg,#29c48c,#1976d2)}
+    .o2{bottom:-200px;right:-200px;background:linear-gradient(135deg,#7c3aed,#2563eb);animation-delay:-10s}
+    @keyframes float{0%,100%{transform:translate(0,0)}33%{transform:translate(40px,-40px)}66%{transform:translate(-40px,40px)}}
+    .card{position:relative;z-index:10;width:100%;max-width:480px;margin:20px;background:rgba(20,20,30,.75);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:40px 32px;box-shadow:0 20px 80px rgba(0,0,0,.5);animation:up .5s ease}
+    @keyframes up{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#29c48c,#1976d2,transparent);border-radius:28px 28px 0 0}
+    .logo-wrap{width:80px;height:80px;margin:0 auto 16px;position:relative}
+    .ring{position:absolute;inset:0;border:3px solid transparent;border-top-color:#29c48c;border-right-color:#1976d2;border-radius:50%;animation:spin 3s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .logo{width:100%;height:100%;background:linear-gradient(135deg,#29c48c,#1976d2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px}
+    h1{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
+    .sub{text-align:center;color:rgba(255,255,255,.5);font-size:13px;margin-bottom:28px}
+    .steps{display:flex;justify-content:center;gap:6px;margin-bottom:24px;flex-wrap:wrap}
+    .step{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:6px 12px;border-radius:20px;font-size:11px;color:rgba(255,255,255,.6)}
+    .step.active{border-color:#29c48c44;background:rgba(41,196,140,.08);color:#29c48c}
+    .step span{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+    .step.active span{background:#29c48c;color:#000}
+    label{display:block;font-size:12px;font-weight:500;color:rgba(255,255,255,.7);margin-bottom:8px}
+    .inp-wrap{position:relative;margin-bottom:8px}
+    .inp{width:100%;padding:13px 16px 13px 46px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;color:white;font-family:'Poppins',sans-serif;font-size:14px;outline:none;transition:border .2s}
+    .inp:focus{border-color:#29c48c}
+    .inp::placeholder{color:rgba(255,255,255,.25)}
+    .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#29c48c;font-size:15px}
+    .hint{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:20px}
+    .btn{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#29c48c,#1976d2);color:white;font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .3s;box-shadow:0 4px 20px rgba(41,196,140,.3)}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(41,196,140,.4)}
+    .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+    /* Pair code display */
+    #codeBox{display:none;text-align:center;margin:20px 0}
+    .code-label{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px}
+    .pair-code{font-size:36px;font-weight:700;letter-spacing:8px;color:#29c48c;background:rgba(41,196,140,.08);border:1.5px dashed rgba(41,196,140,.4);border-radius:14px;padding:16px 24px;display:inline-block}
+    .code-tip{font-size:12px;color:rgba(255,255,255,.4);margin-top:10px;line-height:1.6}
+    .code-tip strong{color:#29c48c}
+    .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.2);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+
+    /* Session ID result */
+    #resultBox{display:none;margin-top:20px}
+    .result-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#29c48c;margin-bottom:10px}
+    .sid-wrap{background:rgba(41,196,140,.06);border:1px solid rgba(41,196,140,.2);border-radius:12px;padding:14px;word-break:break-all;font-size:11px;color:#a3e6cc;font-family:monospace;line-height:1.7;max-height:120px;overflow-y:auto}
+    .copy-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(41,196,140,.15);border:1px solid rgba(41,196,140,.3);border-radius:10px;color:#29c48c;cursor:pointer;font-family:'Poppins',sans-serif;font-size:13px;font-weight:500;margin-top:10px;transition:all .2s;width:100%;justify-content:center}
+    .copy-btn:hover{background:rgba(41,196,140,.25)}
+    .again-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Poppins',sans-serif;font-size:13px;margin-top:8px;transition:all .2s;width:100%;justify-content:center}
+    .again-btn:hover{border-color:#29c48c44;color:white}
+
+    /* Info steps */
+    .how{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 16px;margin-top:20px;font-size:12px;color:rgba(255,255,255,.5);line-height:1.9}
+    .how b{color:rgba(255,255,255,.8)}
+    footer{text-align:center;margin-top:20px;font-size:11px;color:rgba(255,255,255,.2)}
+
+    /* Toast */
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:rgba(30,30,50,.95);border:1px solid rgba(41,196,140,.3);padding:12px 22px;border-radius:40px;font-size:13px;color:#29c48c;display:flex;align-items:center;gap:8px;transition:transform .3s;z-index:999;backdrop-filter:blur(10px)}
+    #toast.show{transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+
+<div class="card">
+  <div class="logo-wrap"><div class="ring"></div><div class="logo"><i class="fas fa-robot"></i></div></div>
+  <h1>JamberTech Pair</h1>
+  <p class="sub">Get your WhatsApp Session ID — Official</p>
+
+  <div class="steps">
+    <div class="step active" id="s1"><span>1</span> Enter Number</div>
+    <div class="step" id="s2"><span>2</span> Get Code</div>
+    <div class="step" id="s3"><span>3</span> Session ID</div>
+  </div>
+
+  <div id="inputSection">
+    <label><i class="fas fa-phone" style="color:#29c48c;margin-right:5px"></i> WhatsApp Number</label>
+    <div class="inp-wrap">
+      <input class="inp" id="phoneInput" type="tel" placeholder="923xxxxxxxxxx (with country code, no +)">
+      <i class="fas fa-phone ico"></i>
+    </div>
+    <p class="hint"><i class="fas fa-info-circle" style="color:#29c48c"></i> Example: 923001234567 — no + or spaces</p>
+    <button class="btn" id="pairBtn" onclick="startPair()">
+      <i class="fas fa-link"></i> Generate Pair Code
+    </button>
+  </div>
+
+  <div id="codeBox">
+    <div class="code-label">Enter this code in WhatsApp → Linked Devices</div>
+    <div class="pair-code" id="pairCodeDisplay">----</div>
+    <div class="code-tip">
+      Open WhatsApp → <strong>⋮ Menu</strong> → <strong>Linked Devices</strong><br>
+      → <strong>Link a Device</strong> → <strong>Link with phone number</strong><br>
+      → Enter the code above ↑
+    </div>
+    <div style="margin-top:16px;color:rgba(255,255,255,.5);font-size:12px">
+      <div class="spinner"></div> Waiting for WhatsApp connection...
+    </div>
+  </div>
+
+  <div id="resultBox">
+    <div class="result-head"><i class="fas fa-check-circle"></i> Connected! Your Session ID:</div>
+    <div class="sid-wrap" id="sessionDisplay"></div>
+    <button class="copy-btn" onclick="copySession()"><i class="fas fa-copy"></i> Copy Session ID</button>
+    <button class="again-btn" onclick="resetPage()"><i class="fas fa-redo"></i> Generate Another</button>
+  </div>
+
+  <div class="how">
+    <b>📋 How to use this Session ID:</b><br>
+    1. Copy the Session ID above<br>
+    2. Go to Railway / Render / Koyeb<br>
+    3. Add <b>SESSION_ID</b> variable → paste it<br>
+    4. Deploy your <b>JamberTech-WA</b> bot ✅
+  </div>
+
+  <footer>© 2026 JamberTech Official</footer>
+</div>
+
+<div id="toast"><i class="fas fa-check-circle"></i> <span id="toastMsg">Copied!</span></div>
+
+<script>
+let currentSessionId = null;
+let pollTimer = null;
+let sessionID = null;
+
+function showToast(msg) {
+  document.getElementById('toastMsg').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('s'+i).classList.toggle('active', i <= n);
+  });
+}
+
+async function startPair() {
+  const num = document.getElementById('phoneInput').value.replace(/[^0-9]/g,'');
+  if (!num || num.length < 10) { showToast('Valid number daalo!'); return; }
+
+  const btn = document.getElementById('pairBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Generating...';
+
+  try {
+    const res = await fetch('/pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number: num })
+    });
+    const data = await res.json();
+
+    if (data.error) { showToast(data.error); btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> Generate Pair Code'; return; }
+
+    currentSessionId = data.sessionId;
+    document.getElementById('pairCodeDisplay').textContent = data.pairCode;
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('codeBox').style.display = 'block';
+    setStep(2);
+
+    // Poll for session
+    pollTimer = setInterval(pollStatus, 3000);
+
+  } catch {
+    showToast('Server error. Try again!');
+    btn.disabled=false;
+    btn.innerHTML='<i class="fas fa-link"></i> Generate Pair Code';
+  }
+}
+
+async function pollStatus() {
+  if (!currentSessionId) return;
+  try {
+    const res = await fetch('/status/' + currentSessionId);
+    const data = await res.json();
+
+    if (data.status === 'connected' && data.sessionID) {
+      clearInterval(pollTimer);
+      sessionID = data.sessionID;
+      document.getElementById('codeBox').style.display = 'none';
+      document.getElementById('sessionDisplay').textContent = sessionID;
+      document.getElementById('resultBox').style.display = 'block';
+      setStep(3);
+    } else if (data.status === 'expired') {
+      clearInterval(pollTimer);
+      showToast('Session expired. Try again!');
+      resetPage();
+    }
+  } catch {}
+}
+
+function copySession() {
+  if (!sessionID) return;
+  navigator.clipboard.writeText(sessionID).then(() => showToast('Session ID copied! ✅'));
+}
+
+function resetPage() {
+  if (pollTimer) clearInterval(pollTimer);
+  currentSessionId = null; sessionID = null;
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('codeBox').style.display = 'none';
+  document.getElementById('resultBox').style.display = 'none';
+  document.getElementById('phoneInput').value = '';
+  const btn = document.getElementById('pairBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-link"></i> Generate Pair Code';
+  setStep(1);
+}
+</script>
+</body>
+</html>
