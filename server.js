@@ -13,6 +13,7 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
+  makeCacheableSignalKeyStore,
 } = require("@whiskeysockets/baileys");
 
 const app = express();
@@ -35,49 +36,73 @@ function encodeSession(dir) {
   } catch { return null; }
 }
 
-async function createSocket(sessionDir) {
-  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-  let version;
-  try { ({ version } = await fetchLatestBaileysVersion()); }
-  catch { version = [2, 3000, 1015901307]; }
-
-  const sock = makeWASocket({
-    version,
-    logger: pino({ level: "silent" }),
-    auth: state,
-    browser: ["Ubuntu", "Chrome", "20.0.04"],
-    printQRInTerminal: false,
-    connectTimeoutMs: 60_000,
-    keepAliveIntervalMs: 10_000,
-    syncFullHistory: false,
-    markOnlineOnConnect: false,
-  });
-  sock.ev.on("creds.update", saveCreds);
-  return sock;
+async function getVersion() {
+  try { return (await fetchLatestBaileysVersion()).version; }
+  catch { return [2, 3000, 1015901307]; }
 }
 
-// ── POST /qr — Start QR code session ──────────────────────────────────────
-app.post("/qr", async (req, res) => {
-  const token = "qr_" + Date.now();
+// ── POST /pair — Pair Code Method ──────────────────────────────────────────
+app.post("/pair", async (req, res) => {
+  let { number } = req.body;
+  if (!number) return res.status(400).json({ error: "Phone number required" });
+  number = number.replace(/[^0-9]/g, "");
+  if (number.length < 10) return res.status(400).json({ error: "Invalid number — use international format (e.g. 923001234567)" });
+
+  const token = "pair_" + Date.now();
   const sessionDir = path.join(SESSIONS_DIR, token);
   cleanDir(sessionDir);
   fs.mkdirSync(sessionDir, { recursive: true });
 
-  try {
-    const sock = await createSocket(sessionDir);
-    const entry = { sock, sessionDir, connected: false, sessionID: null, qrDataUrl: null, qrExpired: false };
-    activeSessions.set(token, entry);
+  const logger = pino({ level: "silent" });
 
-    sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const version = await getVersion();
+
+    const sock = makeWASocket({
+      version,
+      logger,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      browser: ["Mac OS", "Chrome", "14.4.1"],
+      printQRInTerminal: false,
+      defaultQueryTimeoutMs: undefined,
+      keepAliveIntervalMs: 10_000,
+      connectTimeoutMs: 60_000,
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
+      generateHighQualityLinkPreview: false,
+    });
+
+    const entry = { sock, sessionDir, connected: false, sessionID: null };
+    activeSessions.set(token, entry);
+    sock.ev.on("creds.update", saveCreds);
+
+    let pairCodeRequested = false;
+    let pairCodeValue = null;
+    let pairCodeError = null;
+
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
       const e = activeSessions.get(token);
       if (!e) return;
 
-      // New QR received — convert to image
-      if (qr) {
+      // ── OFFICIAL WAY: request pair code on connecting/qr ────────────────
+      if (
+        !pairCodeRequested &&
+        !sock.authState.creds.registered &&
+        (connection === "connecting" || !!qr)
+      ) {
+        pairCodeRequested = true;
         try {
-          e.qrDataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 });
-          e.qrExpired = false;
-        } catch {}
+          let code = await sock.requestPairingCode(number);
+          code = code?.replace(/(.{4})/g, "$1-").slice(0, -1) || code;
+          pairCodeValue = code;
+        } catch (err) {
+          pairCodeError = err.message;
+        }
       }
 
       if (connection === "open") {
@@ -89,8 +114,104 @@ app.post("/qr", async (req, res) => {
 
       if (connection === "close") {
         const code = lastDisconnect?.error?.output?.statusCode;
-        if (code === DisconnectReason.timedOut) { e.qrExpired = true; }
         if (code === DisconnectReason.loggedOut || code === 401) {
+          activeSessions.delete(token);
+          cleanDir(sessionDir);
+        }
+      }
+    });
+
+    // Wait up to 20s for pair code to appear
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await sleep(500);
+      if (pairCodeValue) break;
+      if (pairCodeError) break;
+    }
+
+    if (!pairCodeValue) {
+      try { sock.end(); } catch {}
+      activeSessions.delete(token);
+      cleanDir(sessionDir);
+      return res.status(500).json({ error: pairCodeError || "Pair code nahi aaya. Dobara try karein." });
+    }
+
+    // Auto cleanup after 5 min
+    setTimeout(() => {
+      const e = activeSessions.get(token);
+      if (e && !e.connected) {
+        try { e.sock.end(); } catch {};
+        activeSessions.delete(token);
+        cleanDir(sessionDir);
+      }
+    }, 5 * 60 * 1000);
+
+    return res.json({ pairCode: pairCodeValue, sessionId: token });
+
+  } catch (err) {
+    activeSessions.delete(token);
+    cleanDir(sessionDir);
+    return res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ── POST /qr — QR Code Method ─────────────────────────────────────────────
+app.post("/qr", async (req, res) => {
+  const token = "qr_" + Date.now();
+  const sessionDir = path.join(SESSIONS_DIR, token);
+  cleanDir(sessionDir);
+  fs.mkdirSync(sessionDir, { recursive: true });
+
+  const logger = pino({ level: "silent" });
+
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const version = await getVersion();
+
+    const sock = makeWASocket({
+      version,
+      logger,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      browser: ["Mac OS", "Chrome", "14.4.1"],
+      printQRInTerminal: false,
+      defaultQueryTimeoutMs: undefined,
+      keepAliveIntervalMs: 10_000,
+      connectTimeoutMs: 60_000,
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
+    });
+
+    const entry = { sock, sessionDir, connected: false, sessionID: null, qrDataUrl: null, qrExpired: false };
+    activeSessions.set(token, entry);
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+      const e = activeSessions.get(token);
+      if (!e) return;
+
+      if (qr) {
+        try { e.qrDataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 }); e.qrExpired = false; }
+        catch {}
+      }
+
+      if (connection === "open") {
+        await sleep(2000);
+        const encoded = encodeSession(sessionDir);
+        if (encoded) { e.connected = true; e.sessionID = encoded; }
+        try { sock.end(); } catch {}
+      }
+
+      if (connection === "close") {
+        const code = lastDisconnect?.error?.output?.statusCode;
+        if (code === DisconnectReason.timedOut) { if (activeSessions.get(token)) activeSessions.get(token).qrExpired = true; }
+        if (code === DisconnectReason.loggedOut || code === 401) {
+          activeSessions.delete(token); cleanDir(sessionDir);
+        }
+        if (code === DisconnectReason.restartRequired) {
           activeSessions.delete(token); cleanDir(sessionDir);
         }
       }
@@ -103,7 +224,6 @@ app.post("/qr", async (req, res) => {
       if (e?.qrDataUrl) return res.json({ sessionId: token, qr: e.qrDataUrl });
     }
 
-    // Cleanup if QR never came
     try { sock.end(); } catch {}
     activeSessions.delete(token); cleanDir(sessionDir);
     return res.status(500).json({ error: "QR generate nahi hua. Dobara try karein." });
@@ -114,7 +234,7 @@ app.post("/qr", async (req, res) => {
   }
 });
 
-// ── GET /qr/:token — Poll for fresh QR or session ─────────────────────────
+// ── GET /qr/:token — Poll for QR status ───────────────────────────────────
 app.get("/qr/:token", (req, res) => {
   const e = activeSessions.get(req.params.token);
   if (!e) return res.json({ status: "expired" });
@@ -127,65 +247,7 @@ app.get("/qr/:token", (req, res) => {
   return res.json({ status: "waiting", qr: e.qrDataUrl });
 });
 
-// ── POST /pair — Pair code method ──────────────────────────────────────────
-app.post("/pair", async (req, res) => {
-  let { number } = req.body;
-  if (!number) return res.status(400).json({ error: "Phone number required" });
-  number = number.replace(/[^0-9]/g, "");
-  if (number.length < 7) return res.status(400).json({ error: "Invalid number" });
-
-  const token = "pair_" + Date.now();
-  const sessionDir = path.join(SESSIONS_DIR, token);
-  cleanDir(sessionDir);
-  fs.mkdirSync(sessionDir, { recursive: true });
-
-  try {
-    const sock = await createSocket(sessionDir);
-    const entry = { sock, sessionDir, connected: false, sessionID: null };
-    activeSessions.set(token, entry);
-
-    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
-      const e = activeSessions.get(token);
-      if (!e) return;
-      if (connection === "open") {
-        await sleep(2000);
-        const encoded = encodeSession(sessionDir);
-        if (encoded) { e.connected = true; e.sessionID = encoded; }
-        try { sock.end(); } catch {}
-      }
-      if (connection === "close") {
-        const code = lastDisconnect?.error?.output?.statusCode;
-        if (code === DisconnectReason.loggedOut || code === 401) {
-          activeSessions.delete(token); cleanDir(sessionDir);
-        }
-      }
-    });
-
-    await sleep(3000);
-
-    let pairCode;
-    try {
-      pairCode = await sock.requestPairingCode(number);
-      pairCode = pairCode?.replace(/(.{4})/g, "$1-").slice(0, -1) || pairCode;
-    } catch (err) {
-      try { sock.end(); } catch {}
-      activeSessions.delete(token); cleanDir(sessionDir);
-      return res.status(500).json({ error: "Pair code error: " + err.message });
-    }
-
-    setTimeout(() => {
-      const e = activeSessions.get(token);
-      if (e && !e.connected) { try { e.sock.end(); } catch {}; activeSessions.delete(token); cleanDir(sessionDir); }
-    }, 5 * 60 * 1000);
-
-    return res.json({ pairCode, sessionId: token });
-  } catch (err) {
-    activeSessions.delete(token); cleanDir(sessionDir);
-    return res.status(500).json({ error: "Server error: " + err.message });
-  }
-});
-
-// ── GET /status/:token ─────────────────────────────────────────────────────
+// ── GET /status/:token — Poll for pair status ─────────────────────────────
 app.get("/status/:token", (req, res) => {
   const e = activeSessions.get(req.params.token);
   if (!e) return res.json({ status: "expired" });
@@ -197,5 +259,5 @@ app.get("/status/:token", (req, res) => {
   res.json({ status: "waiting" });
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, v: "2.0.0" }));
 app.listen(PORT, () => console.log(`[JamberTech Pair] Port ${PORT}`));

@@ -1,6 +1,6 @@
 {
   "name": "jambertech-pair",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "JamberTech Official — WhatsApp Session Generator",
   "main": "server.js",
   "scripts": {
