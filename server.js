@@ -7,6 +7,7 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
+  delay,
 } = require("@whiskeysockets/baileys");
 
 const app = express();
@@ -20,123 +21,140 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }
 const activeSessions = new Map();
 
 function cleanDir(dir) {
-  try { if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  try {
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  } catch {}
 }
 
 function encodeSession(dir) {
   try {
     const creds = fs.readFileSync(path.join(dir, "creds.json"), "utf-8");
     return "DJ~" + Buffer.from(creds).toString("base64");
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-// ── POST /pair ────────────────────────────────────────────────────────────────
+// ── POST /pair ─────────────────────────────────────────────────────────────
 app.post("/pair", async (req, res) => {
   let { number } = req.body;
   if (!number) return res.status(400).json({ error: "Phone number required" });
 
+  // Sanitize number
   number = number.replace(/[^0-9]/g, "");
-  if (number.length < 7) return res.status(400).json({ error: "Invalid number" });
+  if (number.length < 7) return res.status(400).json({ error: "Invalid number format" });
 
-  const token = `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const token = "jtpair_" + Date.now();
   const sessionDir = path.join(SESSIONS_DIR, token);
   cleanDir(sessionDir);
   fs.mkdirSync(sessionDir, { recursive: true });
 
+  let sock;
   try {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({
+    let version;
+    try {
+      const result = await fetchLatestBaileysVersion();
+      version = result.version;
+    } catch {
+      version = [2, 3000, 1015901307];
+    }
+
+    sock = makeWASocket({
       version,
       logger: pino({ level: "silent" }),
       auth: state,
       browser: ["Ubuntu", "Chrome", "20.0.04"],
       printQRInTerminal: false,
+      connectTimeoutMs: 30000,
+      keepAliveIntervalMs: 10000,
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    activeSessions.set(token, {
-      sock,
-      sessionDir,
-      number,
-      connected: false,
-      sessionID: null,
-      pairCode: null,
-    });
+    // ── Request pair code right after socket is ready ──────────────────────
+    let pairCode = null;
+    let pairError = null;
 
-    // ── Wait for QR event — THEN request pair code ──────────────────────────
-    let pairCodeSent = false;
+    // Baileys emits 'connection.update' with qr when ready for auth
+    // We intercept it and request a pairing code instead
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
 
-    sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
-      const entry = activeSessions.get(token);
-      if (!entry) return;
-
-      // QR is emitted → request pair code instead
-      if (qr && !pairCodeSent) {
-        pairCodeSent = true;
+      // When QR would appear → request pair code instead
+      if (qr) {
         try {
-          let code = await sock.requestPairingCode(number);
-          code = code?.match(/.{1,4}/g)?.join("-") || code;
-          entry.pairCode = code;
-          activeSessions.set(token, entry);
+          const code = await sock.requestPairingCode(number);
+          pairCode = code?.replace(/(.{4})/g, "$1-").slice(0, -1) || code;
         } catch (err) {
-          entry.pairCode = "ERROR";
-          activeSessions.set(token, entry);
+          pairError = err.message;
         }
       }
 
       if (connection === "open") {
-        await new Promise(r => setTimeout(r, 2000));
+        await delay(2000);
         const encoded = encodeSession(sessionDir);
-        if (encoded) {
+        const entry = activeSessions.get(token);
+        if (entry && encoded) {
           entry.connected = true;
           entry.sessionID = encoded;
-          activeSessions.set(token, entry);
         }
         try { sock.ws.close(); } catch {}
       }
 
       if (connection === "close") {
-        const code = lastDisconnect?.error?.output?.statusCode;
-        if (code === DisconnectReason.loggedOut || code === 401) {
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
           activeSessions.delete(token);
           cleanDir(sessionDir);
         }
       }
     });
 
-    // Wait up to 15s for pair code to be generated
-    let waited = 0;
-    while (waited < 15000) {
-      await new Promise(r => setTimeout(r, 500));
-      waited += 500;
-      const entry = activeSessions.get(token);
-      if (entry?.pairCode && entry.pairCode !== "ERROR") {
-        // Auto cleanup after 5 min
-        setTimeout(() => {
-          const e = activeSessions.get(token);
-          if (e && !e.connected) {
-            try { e.sock.ws.close(); } catch {}
-            activeSessions.delete(token);
-            cleanDir(sessionDir);
-          }
-        }, 5 * 60 * 1000);
-        return res.json({ pairCode: entry.pairCode, sessionId: token });
-      }
-      if (entry?.pairCode === "ERROR") break;
+    // Store session entry
+    activeSessions.set(token, {
+      sock,
+      sessionDir,
+      number,
+      connected: false,
+      sessionID: null,
+    });
+
+    // ── Wait up to 20 seconds for pair code ──────────────────────────────
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await delay(500);
+      if (pairCode) break;
+      if (pairError) break;
     }
 
-    // Timeout or error
-    try { sock.ws.close(); } catch {}
-    activeSessions.delete(token);
-    cleanDir(sessionDir);
-    return res.status(500).json({ error: "Pair code generate nahi hua. Dobara try karo!" });
+    if (!pairCode) {
+      // Cleanup
+      try { sock.ws.close(); } catch {}
+      activeSessions.delete(token);
+      cleanDir(sessionDir);
+      return res.status(500).json({
+        error: pairError || "Pair code nahi aaya. Dobara try karein.",
+      });
+    }
+
+    // Auto cleanup after 5 minutes if not connected
+    setTimeout(() => {
+      const entry = activeSessions.get(token);
+      if (entry && !entry.connected) {
+        try { entry.sock.ws.close(); } catch {}
+        activeSessions.delete(token);
+        cleanDir(sessionDir);
+      }
+    }, 5 * 60 * 1000);
+
+    return res.json({ pairCode, sessionId: token });
 
   } catch (err) {
-    cleanDir(sessionDir);
+    try { if (sock) sock.ws.close(); } catch {}
     activeSessions.delete(token);
+    cleanDir(sessionDir);
     return res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -145,15 +163,22 @@ app.post("/pair", async (req, res) => {
 app.get("/status/:sessionId", (req, res) => {
   const entry = activeSessions.get(req.params.sessionId);
   if (!entry) return res.json({ status: "expired" });
+
   if (entry.connected && entry.sessionID) {
     const sid = entry.sessionID;
     activeSessions.delete(req.params.sessionId);
     cleanDir(entry.sessionDir);
     return res.json({ status: "connected", sessionID: sid });
   }
+
   res.json({ status: "waiting" });
 });
 
+// ── Health check ───────────────────────────────────────────────────────────
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "JamberTech Pair", version: "1.0.0" });
+});
+
 app.listen(PORT, () => {
-  console.log(`[JamberTech Pair] Running on port ${PORT}`);
+  console.log(`[JamberTech Pair] Server running on port ${PORT}`);
 });
