@@ -12,6 +12,7 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
+  Browsers,
 } = require("@whiskeysockets/baileys");
 
 const app = express();
@@ -25,7 +26,7 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }
 const activeSessions = new Map();
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(r => setTimeout(r, ms));
 }
 
 function cleanDir(dir) {
@@ -48,6 +49,7 @@ app.post("/pair", async (req, res) => {
   let { number } = req.body;
   if (!number) return res.status(400).json({ error: "Phone number required" });
 
+  // Sanitize: only digits, no +, no spaces
   number = number.replace(/[^0-9]/g, "");
   if (number.length < 7) return res.status(400).json({ error: "Invalid number" });
 
@@ -71,13 +73,15 @@ app.post("/pair", async (req, res) => {
       version,
       logger: pino({ level: "silent" }),
       auth: state,
-      browser: ["Ubuntu", "Chrome", "20.0.04"],
+      // Use standard browser — critical for pair code to work
+      browser: Browsers.ubuntu("Chrome"),
       printQRInTerminal: false,
+      connectTimeoutMs: 30_000,
+      syncFullHistory: false,
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    // Track session
     activeSessions.set(token, {
       sock,
       sessionDir,
@@ -86,7 +90,39 @@ app.post("/pair", async (req, res) => {
       sessionID: null,
     });
 
-    // Connection listener
+    // ── Wait for WebSocket to actually OPEN before requesting pair code ──
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("WS open timeout")), 15000);
+      // sock.ws is the underlying WebSocket
+      if (sock.ws.readyState === sock.ws.OPEN) {
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+      sock.ws.on("open", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      sock.ws.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+
+    // ── Now request the pair code ──────────────────────────────────────────
+    let pairCode;
+    try {
+      pairCode = await sock.requestPairingCode(number);
+      // Format as XXXX-XXXX for display
+      pairCode = pairCode?.replace(/(.{4})/g, "$1-").slice(0, -1) || pairCode;
+    } catch (err) {
+      try { sock.ws.close(); } catch {}
+      activeSessions.delete(token);
+      cleanDir(sessionDir);
+      return res.status(500).json({ error: "Pair code error: " + err.message });
+    }
+
+    // ── Listen for WhatsApp connection (after user enters code) ───────────
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
       const entry = activeSessions.get(token);
       if (!entry) return;
@@ -110,39 +146,17 @@ app.post("/pair", async (req, res) => {
       }
     });
 
-    // ── Official Baileys way: call requestPairingCode right after socket ──
-    // Only if not already registered (fresh session)
-    if (!state.creds.registered) {
-      await sleep(1500);
-      let pairCode;
-      try {
-        pairCode = await sock.requestPairingCode(number);
-        pairCode = pairCode?.match(/.{1,4}/g)?.join("-") || pairCode;
-      } catch (err) {
-        try { sock.ws.close(); } catch {}
+    // Auto cleanup after 5 min
+    setTimeout(() => {
+      const entry = activeSessions.get(token);
+      if (entry && !entry.connected) {
+        try { entry.sock.ws.close(); } catch {}
         activeSessions.delete(token);
         cleanDir(sessionDir);
-        return res.status(500).json({ error: "Pair code error: " + err.message });
       }
+    }, 5 * 60 * 1000);
 
-      // Auto cleanup after 5 min
-      setTimeout(() => {
-        const entry = activeSessions.get(token);
-        if (entry && !entry.connected) {
-          try { entry.sock.ws.close(); } catch {}
-          activeSessions.delete(token);
-          cleanDir(sessionDir);
-        }
-      }, 5 * 60 * 1000);
-
-      return res.json({ pairCode, sessionId: token });
-    } else {
-      // Already registered — just return status
-      try { sock.ws.close(); } catch {}
-      activeSessions.delete(token);
-      cleanDir(sessionDir);
-      return res.status(400).json({ error: "Session already exists. Clear and retry." });
-    }
+    return res.json({ pairCode, sessionId: token });
 
   } catch (err) {
     activeSessions.delete(token);
