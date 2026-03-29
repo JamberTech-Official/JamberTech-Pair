@@ -1,4 +1,7 @@
-// Polyfill crypto for older Node versions
+// JamberTech Pair v3.0 — WhatsApp Session Generator
+// Based on @whiskeysockets/baileys v7
+// Supports: QR Code + Pair Code methods
+
 if (!globalThis.crypto) {
   globalThis.crypto = require("crypto").webcrypto;
 }
@@ -22,33 +25,53 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
 const SESSIONS_DIR = path.join(__dirname, "pair_sessions");
-if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+if (!fs.existsSync(SESSIONS_DIR))
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
 const activeSessions = new Map();
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function cleanDir(dir) {
-  try { if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
+
+function cleanDir(dir) {
+  try {
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  } catch (_) {}
+}
+
 function encodeSession(dir) {
   try {
-    return "DJ~" + Buffer.from(fs.readFileSync(path.join(dir, "creds.json"), "utf-8")).toString("base64");
-  } catch { return null; }
+    const credsPath = path.join(dir, "creds.json");
+    if (!fs.existsSync(credsPath)) return null;
+    const raw = fs.readFileSync(credsPath, "utf-8");
+    return "DJ~" + Buffer.from(raw).toString("base64");
+  } catch (_) {
+    return null;
+  }
 }
 
 async function getVersion() {
-  try { return (await fetchLatestBaileysVersion()).version; }
-  catch { return [2, 3000, 1015901307]; }
+  try {
+    return (await fetchLatestBaileysVersion()).version;
+  } catch (_) {
+    return [2, 3000, 1015901307];
+  }
 }
 
-// ── POST /pair — Pair Code Method ──────────────────────────────────────────
+// ── POST /pair — Pair Code Method ──
 app.post("/pair", async (req, res) => {
   let { number } = req.body;
-  if (!number) return res.status(400).json({ error: "Phone number required" });
-  number = number.replace(/[^0-9]/g, "");
-  if (number.length < 10) return res.status(400).json({ error: "Invalid number — use international format (e.g. 923001234567)" });
+  if (!number)
+    return res.status(400).json({ error: "Phone number required" });
 
-  const token = "pair_" + Date.now();
+  number = number.replace(/[^0-9]/g, "");
+  if (number.length < 10)
+    return res.status(400).json({
+      error: "Invalid number — use international format (e.g. 923001234567)",
+    });
+
+  const token = "pair_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   const sessionDir = path.join(SESSIONS_DIR, token);
   cleanDir(sessionDir);
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -69,8 +92,8 @@ app.post("/pair", async (req, res) => {
       browser: ["Mac OS", "Chrome", "14.4.1"],
       printQRInTerminal: false,
       defaultQueryTimeoutMs: undefined,
-      keepAliveIntervalMs: 10_000,
-      connectTimeoutMs: 60_000,
+      keepAliveIntervalMs: 10000,
+      connectTimeoutMs: 60000,
       syncFullHistory: false,
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
@@ -89,7 +112,6 @@ app.post("/pair", async (req, res) => {
       const e = activeSessions.get(token);
       if (!e) return;
 
-      // ── OFFICIAL WAY: request pair code on connecting/qr ────────────────
       if (
         !pairCodeRequested &&
         !sock.authState.creds.registered &&
@@ -98,7 +120,9 @@ app.post("/pair", async (req, res) => {
         pairCodeRequested = true;
         try {
           let code = await sock.requestPairingCode(number);
-          code = code?.replace(/(.{4})/g, "$1-").slice(0, -1) || code;
+          if (code) {
+            code = code.replace(/(.{4})/g, "$1-").slice(0, -1);
+          }
           pairCodeValue = code;
         } catch (err) {
           pairCodeError = err.message;
@@ -108,8 +132,13 @@ app.post("/pair", async (req, res) => {
       if (connection === "open") {
         await sleep(2000);
         const encoded = encodeSession(sessionDir);
-        if (encoded) { e.connected = true; e.sessionID = encoded; }
-        try { sock.end(); } catch {}
+        if (encoded) {
+          e.connected = true;
+          e.sessionID = encoded;
+        }
+        try {
+          sock.end();
+        } catch (_) {}
       }
 
       if (connection === "close") {
@@ -121,43 +150,49 @@ app.post("/pair", async (req, res) => {
       }
     });
 
-    // Wait up to 20s for pair code to appear
+    // Wait up to 20s for pair code
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       await sleep(500);
-      if (pairCodeValue) break;
-      if (pairCodeError) break;
+      if (pairCodeValue || pairCodeError) break;
     }
 
     if (!pairCodeValue) {
-      try { sock.end(); } catch {}
+      try {
+        sock.end();
+      } catch (_) {}
       activeSessions.delete(token);
       cleanDir(sessionDir);
-      return res.status(500).json({ error: pairCodeError || "Pair code nahi aaya. Dobara try karein." });
+      return res.status(500).json({
+        error: pairCodeError || "Pair code nahi aaya. Dobara try karein.",
+      });
     }
 
     // Auto cleanup after 5 min
     setTimeout(() => {
       const e = activeSessions.get(token);
       if (e && !e.connected) {
-        try { e.sock.end(); } catch {};
+        try {
+          e.sock.end();
+        } catch (_) {}
         activeSessions.delete(token);
         cleanDir(sessionDir);
       }
     }, 5 * 60 * 1000);
 
     return res.json({ pairCode: pairCodeValue, sessionId: token });
-
   } catch (err) {
     activeSessions.delete(token);
     cleanDir(sessionDir);
-    return res.status(500).json({ error: "Server error: " + err.message });
+    return res
+      .status(500)
+      .json({ error: "Server error: " + err.message });
   }
 });
 
-// ── POST /qr — QR Code Method ─────────────────────────────────────────────
-app.post("/qr", async (req, res) => {
-  const token = "qr_" + Date.now();
+// ── POST /qr — QR Code Method ──
+app.post("/qr", async (_req, res) => {
+  const token = "qr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   const sessionDir = path.join(SESSIONS_DIR, token);
   cleanDir(sessionDir);
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -178,13 +213,20 @@ app.post("/qr", async (req, res) => {
       browser: ["Mac OS", "Chrome", "14.4.1"],
       printQRInTerminal: false,
       defaultQueryTimeoutMs: undefined,
-      keepAliveIntervalMs: 10_000,
-      connectTimeoutMs: 60_000,
+      keepAliveIntervalMs: 10000,
+      connectTimeoutMs: 60000,
       syncFullHistory: false,
       markOnlineOnConnect: false,
     });
 
-    const entry = { sock, sessionDir, connected: false, sessionID: null, qrDataUrl: null, qrExpired: false };
+    const entry = {
+      sock,
+      sessionDir,
+      connected: false,
+      sessionID: null,
+      qrDataUrl: null,
+      qrExpired: false,
+    };
     activeSessions.set(token, entry);
     sock.ev.on("creds.update", saveCreds);
 
@@ -194,25 +236,40 @@ app.post("/qr", async (req, res) => {
       if (!e) return;
 
       if (qr) {
-        try { e.qrDataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 }); e.qrExpired = false; }
-        catch {}
+        try {
+          e.qrDataUrl = await QRCode.toDataURL(qr, {
+            width: 300,
+            margin: 2,
+          });
+          e.qrExpired = false;
+        } catch (_) {}
       }
 
       if (connection === "open") {
         await sleep(2000);
         const encoded = encodeSession(sessionDir);
-        if (encoded) { e.connected = true; e.sessionID = encoded; }
-        try { sock.end(); } catch {}
+        if (encoded) {
+          e.connected = true;
+          e.sessionID = encoded;
+        }
+        try {
+          sock.end();
+        } catch (_) {}
       }
 
       if (connection === "close") {
         const code = lastDisconnect?.error?.output?.statusCode;
-        if (code === DisconnectReason.timedOut) { if (activeSessions.get(token)) activeSessions.get(token).qrExpired = true; }
-        if (code === DisconnectReason.loggedOut || code === 401) {
-          activeSessions.delete(token); cleanDir(sessionDir);
+        if (code === DisconnectReason.timedOut) {
+          const s = activeSessions.get(token);
+          if (s) s.qrExpired = true;
         }
-        if (code === DisconnectReason.restartRequired) {
-          activeSessions.delete(token); cleanDir(sessionDir);
+        if (
+          code === DisconnectReason.loggedOut ||
+          code === 401 ||
+          code === DisconnectReason.restartRequired
+        ) {
+          activeSessions.delete(token);
+          cleanDir(sessionDir);
         }
       }
     });
@@ -221,43 +278,64 @@ app.post("/qr", async (req, res) => {
     for (let i = 0; i < 20; i++) {
       await sleep(500);
       const e = activeSessions.get(token);
-      if (e?.qrDataUrl) return res.json({ sessionId: token, qr: e.qrDataUrl });
+      if (e && e.qrDataUrl) {
+        return res.json({ sessionId: token, qr: e.qrDataUrl });
+      }
     }
 
-    try { sock.end(); } catch {}
-    activeSessions.delete(token); cleanDir(sessionDir);
-    return res.status(500).json({ error: "QR generate nahi hua. Dobara try karein." });
-
+    try {
+      sock.end();
+    } catch (_) {}
+    activeSessions.delete(token);
+    cleanDir(sessionDir);
+    return res
+      .status(500)
+      .json({ error: "QR generate nahi hua. Dobara try karein." });
   } catch (err) {
-    activeSessions.delete(token); cleanDir(sessionDir);
-    return res.status(500).json({ error: "Server error: " + err.message });
+    activeSessions.delete(token);
+    cleanDir(sessionDir);
+    return res
+      .status(500)
+      .json({ error: "Server error: " + err.message });
   }
 });
 
-// ── GET /qr/:token — Poll for QR status ───────────────────────────────────
+// ── GET /qr/:token — Poll QR status ──
 app.get("/qr/:token", (req, res) => {
   const e = activeSessions.get(req.params.token);
   if (!e) return res.json({ status: "expired" });
+
   if (e.connected && e.sessionID) {
     const sid = e.sessionID;
-    activeSessions.delete(req.params.token); cleanDir(e.sessionDir);
+    activeSessions.delete(req.params.token);
+    cleanDir(e.sessionDir);
     return res.json({ status: "connected", sessionID: sid });
   }
+
   if (e.qrExpired) return res.json({ status: "expired" });
   return res.json({ status: "waiting", qr: e.qrDataUrl });
 });
 
-// ── GET /status/:token — Poll for pair status ─────────────────────────────
+// ── GET /status/:token — Poll pair code status ──
 app.get("/status/:token", (req, res) => {
   const e = activeSessions.get(req.params.token);
   if (!e) return res.json({ status: "expired" });
+
   if (e.connected && e.sessionID) {
     const sid = e.sessionID;
-    activeSessions.delete(req.params.token); cleanDir(e.sessionDir);
+    activeSessions.delete(req.params.token);
+    cleanDir(e.sessionDir);
     return res.json({ status: "connected", sessionID: sid });
   }
-  res.json({ status: "waiting" });
+
+  return res.json({ status: "waiting" });
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true, v: "2.0.0" }));
-app.listen(PORT, () => console.log(`[JamberTech Pair] Port ${PORT}`));
+// ── Health ──
+app.get("/health", (_req, res) =>
+  res.json({ ok: true, v: "3.0.0" })
+);
+
+app.listen(PORT, () =>
+  console.log(`[JamberTech Pair] Running on port ${PORT}`)
+);
