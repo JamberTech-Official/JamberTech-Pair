@@ -7,7 +7,6 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
-  delay,
 } = require("@whiskeysockets/baileys");
 
 const app = express();
@@ -19,6 +18,10 @@ const SESSIONS_DIR = path.join(__dirname, "pair_sessions");
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
 const activeSessions = new Map();
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function cleanDir(dir) {
   try {
@@ -40,16 +43,14 @@ app.post("/pair", async (req, res) => {
   let { number } = req.body;
   if (!number) return res.status(400).json({ error: "Phone number required" });
 
-  // Sanitize number
   number = number.replace(/[^0-9]/g, "");
-  if (number.length < 7) return res.status(400).json({ error: "Invalid number format" });
+  if (number.length < 7) return res.status(400).json({ error: "Invalid number" });
 
   const token = "jtpair_" + Date.now();
   const sessionDir = path.join(SESSIONS_DIR, token);
   cleanDir(sessionDir);
   fs.mkdirSync(sessionDir, { recursive: true });
 
-  let sock;
   try {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
@@ -61,58 +62,17 @@ app.post("/pair", async (req, res) => {
       version = [2, 3000, 1015901307];
     }
 
-    sock = makeWASocket({
+    const sock = makeWASocket({
       version,
       logger: pino({ level: "silent" }),
       auth: state,
       browser: ["Ubuntu", "Chrome", "20.0.04"],
       printQRInTerminal: false,
-      connectTimeoutMs: 30000,
-      keepAliveIntervalMs: 10000,
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    // ── Request pair code right after socket is ready ──────────────────────
-    let pairCode = null;
-    let pairError = null;
-
-    // Baileys emits 'connection.update' with qr when ready for auth
-    // We intercept it and request a pairing code instead
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
-
-      // When QR would appear → request pair code instead
-      if (qr) {
-        try {
-          const code = await sock.requestPairingCode(number);
-          pairCode = code?.replace(/(.{4})/g, "$1-").slice(0, -1) || code;
-        } catch (err) {
-          pairError = err.message;
-        }
-      }
-
-      if (connection === "open") {
-        await delay(2000);
-        const encoded = encodeSession(sessionDir);
-        const entry = activeSessions.get(token);
-        if (entry && encoded) {
-          entry.connected = true;
-          entry.sessionID = encoded;
-        }
-        try { sock.ws.close(); } catch {}
-      }
-
-      if (connection === "close") {
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-          activeSessions.delete(token);
-          cleanDir(sessionDir);
-        }
-      }
-    });
-
-    // Store session entry
+    // Track session
     activeSessions.set(token, {
       sock,
       sessionDir,
@@ -121,38 +81,65 @@ app.post("/pair", async (req, res) => {
       sessionID: null,
     });
 
-    // ── Wait up to 20 seconds for pair code ──────────────────────────────
-    const deadline = Date.now() + 20000;
-    while (Date.now() < deadline) {
-      await delay(500);
-      if (pairCode) break;
-      if (pairError) break;
-    }
+    // Connection listener
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+      const entry = activeSessions.get(token);
+      if (!entry) return;
 
-    if (!pairCode) {
-      // Cleanup
+      if (connection === "open") {
+        await sleep(2000);
+        const encoded = encodeSession(sessionDir);
+        if (encoded) {
+          entry.connected = true;
+          entry.sessionID = encoded;
+        }
+        try { sock.ws.close(); } catch {}
+      }
+
+      if (connection === "close") {
+        const code = lastDisconnect?.error?.output?.statusCode;
+        if (code === DisconnectReason.loggedOut || code === 401) {
+          activeSessions.delete(token);
+          cleanDir(sessionDir);
+        }
+      }
+    });
+
+    // ── Official Baileys way: call requestPairingCode right after socket ──
+    // Only if not already registered (fresh session)
+    if (!state.creds.registered) {
+      await sleep(1500);
+      let pairCode;
+      try {
+        pairCode = await sock.requestPairingCode(number);
+        pairCode = pairCode?.match(/.{1,4}/g)?.join("-") || pairCode;
+      } catch (err) {
+        try { sock.ws.close(); } catch {}
+        activeSessions.delete(token);
+        cleanDir(sessionDir);
+        return res.status(500).json({ error: "Pair code error: " + err.message });
+      }
+
+      // Auto cleanup after 5 min
+      setTimeout(() => {
+        const entry = activeSessions.get(token);
+        if (entry && !entry.connected) {
+          try { entry.sock.ws.close(); } catch {}
+          activeSessions.delete(token);
+          cleanDir(sessionDir);
+        }
+      }, 5 * 60 * 1000);
+
+      return res.json({ pairCode, sessionId: token });
+    } else {
+      // Already registered — just return status
       try { sock.ws.close(); } catch {}
       activeSessions.delete(token);
       cleanDir(sessionDir);
-      return res.status(500).json({
-        error: pairError || "Pair code nahi aaya. Dobara try karein.",
-      });
+      return res.status(400).json({ error: "Session already exists. Clear and retry." });
     }
 
-    // Auto cleanup after 5 minutes if not connected
-    setTimeout(() => {
-      const entry = activeSessions.get(token);
-      if (entry && !entry.connected) {
-        try { entry.sock.ws.close(); } catch {}
-        activeSessions.delete(token);
-        cleanDir(sessionDir);
-      }
-    }, 5 * 60 * 1000);
-
-    return res.json({ pairCode, sessionId: token });
-
   } catch (err) {
-    try { if (sock) sock.ws.close(); } catch {}
     activeSessions.delete(token);
     cleanDir(sessionDir);
     return res.status(500).json({ error: "Server error: " + err.message });
@@ -174,11 +161,10 @@ app.get("/status/:sessionId", (req, res) => {
   res.json({ status: "waiting" });
 });
 
-// ── Health check ───────────────────────────────────────────────────────────
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "JamberTech Pair", version: "1.0.0" });
+  res.json({ status: "ok", service: "JamberTech Pair" });
 });
 
 app.listen(PORT, () => {
-  console.log(`[JamberTech Pair] Server running on port ${PORT}`);
+  console.log(`[JamberTech Pair] Running on port ${PORT}`);
 });
