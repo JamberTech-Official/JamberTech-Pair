@@ -115,10 +115,11 @@ app.post("/pair", async (req, res) => {
       if (
         !pairCodeRequested &&
         !sock.authState.creds.registered &&
-        (connection === "connecting" || !!qr)
+        !!qr
       ) {
         pairCodeRequested = true;
         try {
+          await sleep(3000);
           let code = await sock.requestPairingCode(number);
           if (code) {
             code = code.replace(/(.{4})/g, "$1-").slice(0, -1);
@@ -150,8 +151,8 @@ app.post("/pair", async (req, res) => {
       }
     });
 
-    // Wait up to 20s for pair code
-    const deadline = Date.now() + 20000;
+    // Wait up to 30s for pair code (3s delay + connection time)
+    const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
       await sleep(500);
       if (pairCodeValue || pairCodeError) break;
